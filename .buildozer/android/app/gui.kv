@@ -1,0 +1,166 @@
+# Create the multiple windows
+windowManager:
+    mainWindow:
+    createWindow:
+    seeWindow:
+    deleteWindow:
+    updateWindow:
+
+# GUI for the main window
+<mainWindow>:
+    FloatLayout:
+        size: root.width, root.height
+        Button:
+            text : 'Initialize New User'
+            size_hint : 0.4,0.1
+            pos_hint : {"x" : 0.31, "top" : 0.9}
+            on_release:
+                app.root.current = 'createW'
+                root.manager.transition.direction = "left"
+        Button:
+            text : 'See Users'
+            size_hint : 0.4,0.1
+            pos_hint : {"x" : 0.31, "top" : 0.7}
+            on_release:
+                app.root.current = 'seeW'
+                root.manager.transition.direction = "left"
+
+        Button:
+            text : 'Delete User'
+            size_hint : 0.4,0.1
+            pos_hint : {"x" : 0.31, "top" : 0.5}
+            on_release:
+                app.root.current = 'deleteW'
+                root.manager.transition.direction = "left"
+
+        Button:
+            text : 'Update Users'
+            size_hint : 0.4,0.1
+            pos_hint : {"x" : 0.31, "top" : 0.3}
+            on_release:
+                app.root.current = 'updateW'
+                root.manager.transition.direction = "left"
+
+# GUI for create user window
+<createWindow>:
+    uniqueID : uniqueID
+    priorDrinks : priorDrinks
+    elapsed : elapsed
+    weight : weight
+    FloatLayout:
+        Label:
+            text : "Unique ID"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.95}
+        TextInput:
+            id : uniqueID
+            multiline : False
+            size_hint : 0.3, 0.1
+            pos_hint : {"x" : 0.45, "top" : 0.95}
+        Label:
+            text: "# of Prior Drinks"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.75}
+        TextInput:
+            id : priorDrinks
+            multiline : False
+            size_hint : 0.3,0.1
+            pos_hint : {"x" : 0.45, "top" : 0.75}
+        Label:
+            text : "Current Time"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.55}
+        TextInput:
+            id : elapsed
+            multiline : False
+            size_hint : 0.3, 0.1
+            pos_hint : {"x" : 0.45, "top" : 0.55}
+        Label:
+            text : "Weight"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.35}
+        TextInput:
+            id : weight
+            multiline : False
+            size_hint : 0.3, 0.1
+            pos_hint : {"x" : 0.45, "top" : 0.35}
+        CheckBox:
+            pos_hint : {"x" : 0.45, "top" : 0.25}
+            size_hint : 0.3, 0.1
+            on_active : root.femalesel(self.active)
+        CheckBox:
+            pos_hint : {"x" : 0.45, "top" : 0.15}
+            size_hint : 0.3, 0.1
+            on_active : root.malesel(self.active)
+        Label:
+            text : "Female"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.25}
+        Label:
+            text : "Male"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.15}
+        Button:
+            text : 'Initialize User'
+            size_hint : 0.4,0.05
+            pos_hint : {"x" : 0.37, "top" : 0.05}
+            on_release:
+                root.initializeUser()
+                app.root.current = 'mainW'
+                root.manager.transition.direction = "left"
+        Button:
+            text : 'Back'
+            size_hint : 0.1,0.1
+            pos_hint : {"x" : 0.0, "top" : 1}
+            on_release:
+                app.root.current = 'mainW'
+                root.manager.transition.direction = "right"
+
+# GUI for updating drinks
+<updateWindow>:
+    uniqueID : uniqueID
+    drinks : drinks
+    time_M : time_M
+    FloatLayout:
+        Label:
+            text : "Unique ID"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.95}
+        TextInput:
+            id : uniqueID
+            multiline : False
+            size_hint : 0.3, 0.1
+            pos_hint : {"x" : 0.45, "top" : 0.95}
+        Label:
+            text: "Drinks Consumed"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.25, "top":0.75}
+        TextInput:
+            id : drinks
+            multiline : False
+            size_hint : 0.3,0.1
+            pos_hint : {"x" : 0.45, "top" : 0.75}
+        Label:
+            text : "Current Hour (military time)"
+            size_hint : 0.2,0.1
+            pos_hint : {"x":0.22, "top":0.55}
+        TextInput:
+            id : time_M
+            multiline : False
+            size_hint : 0.3, 0.1
+            pos_hint : {"x" : 0.45, "top" : 0.55}
+        Button:
+            text : 'Update User'
+            size_hint : 0.4,0.05
+            pos_hint : {"x" : 0.37, "top" : 0.35}
+            on_release:
+                root.updateUser()
+                app.root.current = 'mainW'
+                root.manager.transition.direction = "left"
+        Button:
+            text : 'Back'
+            size_hint : 0.1,0.1
+            pos_hint : {"x" : 0.0, "top" : 1}
+            on_release:
+                app.root.current = 'mainW'
+                root.manager.transition.direction = "right"

@@ -22,7 +22,7 @@ from kivy.uix.behaviors import FocusBehavior
 
 # DATABASE CONFIGUATION
 config = {
-    'user': 'root',
+    'user': '',
     'password': '',
     'host': '',
     'database': ''
@@ -62,6 +62,12 @@ def send(cmd):
     bytes = [ord(c) for c in msg]
     send_stream.write(bytes)
     #self.send_stream.flush()
+    
+# Receive from bluetooth
+def receive():
+    msg = ''
+    msg = str(recv_stream.readline())
+    return msg
 
 '''
 

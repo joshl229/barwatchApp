@@ -9,7 +9,29 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.checkbox import CheckBox
 from kivy.event import EventDispatcher
 from jnius import autoclass
+import mysql.connector
+from mysql.connector.constants import ClientFlag
+from kivy.properties import BooleanProperty, ListProperty, StringProperty, ObjectProperty
+from kivy.uix.recyclegridlayout import RecycleGridLayout
+from kivy.uix.popup import Popup
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.recycleview.layout import LayoutSelectionBehavior
+from kivy.uix.recycleview.views import RecycleDataViewBehavior
+from kivy.uix.button import Button
+from kivy.uix.behaviors import FocusBehavior
 
+# DATABASE CONFIGUATION
+config = {
+    'user': 'root',
+    'password': '',
+    'host': '',
+    'database': ''
+}
+
+cxn = mysql.connector.connect(**config)
+cursor = cxn.cursor()
+
+'''
 # Bluetooth socket information
 BluetoothAdapter = autoclass('android.bluetooth.BluetoothAdapter')
 BluetoothDevice = autoclass('android.bluetooth.BluetoothDevice')
@@ -41,12 +63,77 @@ def send(cmd):
     send_stream.write(bytes)
     #self.send_stream.flush()
 
-# Global variables for demo if not connected to database
-elapsed = 0
-weight = 0
-gender = 0
-BAC = 0
-time_last = 0
+'''
+
+class TextInputPopup(Popup):
+    obj = ObjectProperty(None)
+    obj_text = StringProperty("")
+
+    def __init__(self, obj, **kwargs):
+        super(TextInputPopup, self).__init__(**kwargs)
+        self.obj = obj
+        self.obj_text = obj.text
+
+
+class SelectableRecycleGridLayout(FocusBehavior, LayoutSelectionBehavior,
+                                  RecycleGridLayout):
+    ''' Adds selection and focus behaviour to the view. '''
+
+
+class SelectableButton(RecycleDataViewBehavior, Button):
+    ''' Add selection support to the Button '''
+    index = None
+    selected = BooleanProperty(False)
+    selectable = BooleanProperty(True)
+
+    def refresh_view_attrs(self, rv, index, data):
+        ''' Catch and handle the view changes '''
+        self.index = index
+        return super(SelectableButton, self).refresh_view_attrs(rv, index, data)
+
+    def on_touch_down(self, touch):
+        ''' Add selection on touch down '''
+        if super(SelectableButton, self).on_touch_down(touch):
+            return True
+        if self.collide_point(*touch.pos) and self.selectable:
+            return self.parent.select_with_touch(self.index, touch)
+
+    def apply_selection(self, rv, index, is_selected):
+        ''' Respond to the selection of items in the view. '''
+        self.selected = is_selected
+
+
+    def on_press(self):
+        popup = TextInputPopup(self)
+        popup.open()
+
+    def update_changes(self, txt):
+        self.text = txt
+        print(self.index)
+
+
+
+class RV(BoxLayout):
+    data_items = ListProperty([])
+
+    def get_users(self):
+        cursor.execute("SELECT * FROM patrons")
+        rows = cursor.fetchall()
+
+        # create data_items
+        for row in rows:
+            for col in row:
+                if(col == 0.73):
+                    self.data_items.append('Male')
+                elif(col == 0.66):
+                    self.data_items.append("Female")
+                else:
+                    self.data_items.append(col)
+
+    def __init__(self, **kwargs):
+        super(RV, self).__init__(**kwargs)
+        self.get_users()
+
 
 # Class for main window
 class mainWindow(Screen):
@@ -71,28 +158,25 @@ class createWindow(Screen):
             self.gcost = 0.73
 
     def initializeUser(self):
-        global gender
-        global BAC
-        global elapsed
-        global weight
 
-        elapsed = float(self.elapsed.text)
         weight = int(self.weight.text)
         gender = self.gcost
 
-        BAC = ( (0.6*float(self.priorDrinks.text)) * 5.14 / (weight * gender) ) - (0.015 * 1)
-
+        BAC = ( (0.6*float(self.priorDrinks.text)) * 5.14 / (weight * gender) )
+        cursor.execute('INSERT INTO patrons (id, drinks, time, weight, gender, bac) VALUES (%s,%s,%s,%s,%s,%s)', (self.uniqueID.text,float(self.priorDrinks.text),int(self.elapsed.text),weight,gender,BAC) )
+        cxn.commit()
         # BAC colors for male (https://safeparty.ucdavis.edu/watch-your-bac)
         # Gold zone is green (0 - 0.07)
         # Orange zone is yellow (0.08 - 0.15)
         # Red zone is red (0.15+)
-        if (BAC <= 0.07):
+        '''
+         if (BAC <= 0.07):
             send('1')
         elif (BAC >= 0.08 and BAC <= 0.15):
             send('2')
         else:
             send('3')
-
+'''
 # Class for see users window
 class seeWindow(Screen):
     pass
@@ -108,11 +192,11 @@ class updateWindow(Screen):
     time_M = ObjectProperty(None)
 
     def updateUser(self):
-        global gender
-        global BAC
-        global elapsed
-        global weight
-        global time_last
+        gender = 0
+        BAC = 0
+        elapsed = 0
+        weight = 0
+        time_last = 0
 
         # If this is their first drink use elapsed since their prior drinks
         if(time_last == 0):
@@ -128,17 +212,20 @@ class updateWindow(Screen):
                 BAC += (((0.6 * float(self.drinks.text)) * 5.14 / (weight * gender)) - (0.015 * (time_last - int(self.time_M.text) )))
                 time_last = int(self.time_M.text)
 
+
+
         # BAC colors for male (https://safeparty.ucdavis.edu/watch-your-bac)
         # Gold zone is green (0 - 0.07)
         # Orange zone is yellow (0.08 - 0.15)
         # Red zone is red (0.15+)
+        '''
         if (BAC <= 0.07):
             send('1')
         elif (BAC >= 0.08 and BAC <= 0.15):
             send('2')
         else:
             send('3')
-
+'''
 # Class for managing windows
 class windowManager(ScreenManager):
     pass

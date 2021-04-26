@@ -19,6 +19,11 @@ from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.button import Button
 from kivy.uix.behaviors import FocusBehavior
+from threading import Timer
+from time import sleep
+import threading
+
+db_users = None
 
 # DATABASE CONFIGUATION
 config = {
@@ -39,7 +44,6 @@ BluetoothSocket = autoclass('android.bluetooth.BluetoothSocket')
 UUID = autoclass('java.util.UUID')
 String = autoclass("java.lang.String")
 CharBuilder = autoclass('java.lang.Character')
-
 # Connect and return bluetooth socket
 def get_socket_stream(name):
     paired_devices = BluetoothAdapter.getDefaultAdapter().getBondedDevices().toArray()
@@ -52,24 +56,47 @@ def get_socket_stream(name):
             break
     socket.connect()
     return recv_stream, send_stream
-
 # Connecting to bluetooth stream
 recv_stream, send_stream = get_socket_stream('HC-05')
-
 # Send to bluetooth
 def send(cmd):
     msg = '{}'.format(cmd)
     bytes = [ord(c) for c in msg]
     send_stream.write(bytes)
     #self.send_stream.flush()
-    
+
 # Receive from bluetooth
 def receive():
     msg = ''
     msg = str(recv_stream.readline())
     return msg
-
 '''
+# Decreases BAC by 0.00025 every minute
+def dec():
+    cursor.execute("UPDATE patrons SET bac = bac - 0.00025")
+    cxn.commit()
+
+class BACdown(threading.Thread):
+    def __init__(self,interval,function,*args,**kwargs):
+        self._timer = None
+        self.interval = interval
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+        self.is_running = False
+        self.start()
+    def _run(self):
+        self.is_running = False
+        self.start()
+        self.function(*self.args,**self.kwargs)
+    def start(self):
+        if not self.is_running:
+            self._timer = Timer(self.interval,self._run)
+            self._timer.start()
+            self.is_running = True
+    def stop(self):
+        self._timer.cancel()
+        self.is_running = False
 
 class TextInputPopup(Popup):
     obj = ObjectProperty(None)
@@ -108,14 +135,66 @@ class SelectableButton(RecycleDataViewBehavior, Button):
         ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
 
-
     def on_press(self):
         popup = TextInputPopup(self)
         popup.open()
 
     def update_changes(self, txt):
         self.text = txt
-        print(self.index)
+        useridx = 0
+
+        # Determining database user
+        if((self.index+1)% 6 == 0):
+            useridx = int((self.index+1)/6)
+        else:
+            useridx = int(((self.index+1)/6)+1)
+
+        # Determining the unique ID
+        ix=1
+        user_c = 1
+        ID = ""
+        for i in db_users:
+            if (user_c == useridx):
+                ID = i
+                break
+            if(ix % 6 == 0):
+                user_c+=1
+            ix+=1
+
+        # Determining the column and updating the database
+        colidx = ((self.index+1)-((useridx-1)*6))
+        col_n = ""
+        if(colidx == 1):
+            col_n = "id"
+            cursor.execute("UPDATE patrons SET id = %s WHERE id = %s", (txt,ID))
+            cxn.commit()
+        elif(colidx == 2):
+            col_n = "id"
+            cursor.execute("UPDATE patrons SET drinks = %s WHERE id = %s", (txt, ID))
+            cxn.commit()
+        elif(colidx == 3):
+            col_n = "time"
+            cursor.execute("UPDATE patrons SET time = %s WHERE id = %s", (txt, ID))
+            cxn.commit()
+        elif(colidx == 4):
+            col_n = "weight"
+            cursor.execute("UPDATE patrons SET weight = %s WHERE id = %s", (txt, ID))
+            cxn.commit()
+        elif(colidx == 5):
+            col_n = "gender"
+            print(txt)
+            if(txt == 'Male'):
+                txt = "0.73"
+            else:
+                txt = "0.66"
+            cursor.execute("UPDATE patrons SET gender = %s WHERE id = %s", (txt, ID))
+            cxn.commit()
+        else:
+            col_n = "bac"
+            cursor.execute("UPDATE patrons SET bac = %s WHERE id = %s", (txt, ID))
+            cxn.commit()
+
+
 
 
 
@@ -125,16 +204,20 @@ class RV(BoxLayout):
     def get_users(self):
         cursor.execute("SELECT * FROM patrons")
         rows = cursor.fetchall()
-
+        global db_users
+        db_users = self.data_items
         # create data_items
         for row in rows:
             for col in row:
-                if(col == 0.73):
+                if (col == 0.73):
                     self.data_items.append('Male')
-                elif(col == 0.66):
+                    db_users = self.data_items
+                elif (col == 0.66):
                     self.data_items.append("Female")
+                    db_users = self.data_items
                 else:
                     self.data_items.append(col)
+                    db_users = self.data_items
 
     def __init__(self, **kwargs):
         super(RV, self).__init__(**kwargs)
@@ -143,7 +226,24 @@ class RV(BoxLayout):
 
 # Class for main window
 class mainWindow(Screen):
-    pass
+    def rf(self):
+        cursor.execute("SELECT * FROM patrons")
+        rows = cursor.fetchall()
+        global db_users
+        try:
+            db_users.clear()
+        except:
+            print('Went through')
+        # create data_items
+        for row in rows:
+            for col in row:
+                if (col == 0.73):
+                    db_users.append('Male')
+                elif (col == 0.66):
+                    db_users.append("Female")
+                else:
+                    db_users.append(col)
+
 
 # Class for create user window
 class createWindow(Screen):
@@ -154,13 +254,13 @@ class createWindow(Screen):
     gcost = 0
 
     # If female is selected, gender constant is 0.66
-    def femalesel(self,active):
-        if(active):
+    def femalesel(self, active):
+        if (active):
             self.gcost = 0.66
 
     # If male selected, gender constant is 0.73
-    def malesel(self,active):
-        if(active):
+    def malesel(self, active):
+        if (active):
             self.gcost = 0.73
 
     def initializeUser(self):
@@ -168,8 +268,9 @@ class createWindow(Screen):
         weight = int(self.weight.text)
         gender = self.gcost
 
-        BAC = ( (0.6*float(self.priorDrinks.text)) * 5.14 / (weight * gender) )
-        cursor.execute('INSERT INTO patrons (id, drinks, time, weight, gender, bac) VALUES (%s,%s,%s,%s,%s,%s)', (self.uniqueID.text,float(self.priorDrinks.text),int(self.elapsed.text),weight,gender,BAC) )
+        BAC = ((0.6 * float(self.priorDrinks.text)) * 5.14 / (weight * gender))
+        cursor.execute('INSERT INTO patrons (id, drinks, time, weight, gender, bac) VALUES (%s,%s,%s,%s,%s,%s)',
+                       (self.uniqueID.text, float(self.priorDrinks.text), int(self.elapsed.text), weight, gender, BAC))
         cxn.commit()
         # BAC colors for male (https://safeparty.ucdavis.edu/watch-your-bac)
         # Gold zone is green (0 - 0.07)
@@ -183,13 +284,17 @@ class createWindow(Screen):
         else:
             send('3')
 '''
+
+
 # Class for see users window
 class seeWindow(Screen):
     pass
 
+
 # Class for delete users window
 class deleteWindow(Screen):
     pass
+
 
 # Class for update user window
 class updateWindow(Screen):
@@ -205,20 +310,20 @@ class updateWindow(Screen):
         time_last = 0
 
         # If this is their first drink use elapsed since their prior drinks
-        if(time_last == 0):
+        if (time_last == 0):
             BAC += ((0.6 * float(self.drinks.text)) * 5.14 / (weight * gender))
             time_last = int(self.time_M.text)
 
         # If this is a subsequent drink
         else:
-            if( int(self.time_M.text) >= time_last):
-                BAC += (((0.6 * float(self.drinks.text)) * 5.14 / (weight * gender)) - (0.015 * (int(self.time_M.text)-time_last)))
+            if (int(self.time_M.text) >= time_last):
+                BAC += (((0.6 * float(self.drinks.text)) * 5.14 / (weight * gender)) - (
+                            0.015 * (int(self.time_M.text) - time_last)))
                 time_last = int(self.time_M.text)
             else:
-                BAC += (((0.6 * float(self.drinks.text)) * 5.14 / (weight * gender)) - (0.015 * (time_last - int(self.time_M.text) )))
+                BAC += (((0.6 * float(self.drinks.text)) * 5.14 / (weight * gender)) - (
+                            0.015 * (time_last - int(self.time_M.text))))
                 time_last = int(self.time_M.text)
-
-
 
         # BAC colors for male (https://safeparty.ucdavis.edu/watch-your-bac)
         # Gold zone is green (0 - 0.07)
@@ -232,9 +337,13 @@ class updateWindow(Screen):
         else:
             send('3')
 '''
+
+
+
 # Class for managing windows
 class windowManager(ScreenManager):
     pass
+
 
 # Bringing in gui file
 kv = Builder.load_file('gui.kv')
@@ -247,11 +356,12 @@ pgm.add_widget(seeWindow(name='seeW'))
 pgm.add_widget(deleteWindow(name='deleteW'))
 pgm.add_widget(updateWindow(name='updateW'))
 
+
 # Builds the GUI
 class MainApp(App):
     def build(self):
+        rt = BACdown(60,dec)
         return pgm
 
-if __name__=="__main__":
+if __name__ == "__main__":
     MainApp().run()
-

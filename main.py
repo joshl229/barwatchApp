@@ -27,10 +27,10 @@ db_users = None
 
 # DATABASE CONFIGUATION
 config = {
-    'user': '',
-    'password': '',
-    'host': '',
-    'database': ''
+    'user': 'root',
+    'password': 'redlion',
+    'host': '34.122.136.213',
+    'database': 'bar'
 }
 
 cxn = mysql.connector.connect(**config)
@@ -56,8 +56,9 @@ def get_socket_stream(name):
             break
     socket.connect()
     return recv_stream, send_stream
+'''
 # Connecting to bluetooth stream
-recv_stream, send_stream = get_socket_stream('HC-05')
+#recv_stream, send_stream = get_socket_stream('HC-05')
 # Send to bluetooth
 def send(cmd):
     msg = '{}'.format(cmd)
@@ -66,11 +67,43 @@ def send(cmd):
     #self.send_stream.flush()
 
 # Receive from bluetooth
-def receive():
-    msg = ''
-    msg = str(recv_stream.readline())
-    return msg
-'''
+
+
+# Stream that reads from reader
+def read(self, *args):
+    received = ''
+    while True:
+        if (self.stream.ready()):
+            try:
+                stream = self.stream.readLine()
+                cursor.execute('INSERT INTO patrons (id, drinks, time, weight, gender, bac) VALUES (%s,%s,%s,%s,%s,%s)',(stream, 1, 1, 1, 1,1))
+                cxn.commit()
+            except:
+                print("Random Exception")
+
+class rec(threading.Thread):
+    def __init__(self,interval,function,*args,**kwargs):
+        self._timer = None
+        self.interval = interval
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+        self.is_running = False
+        self.start()
+    def _run(self):
+        self.is_running = False
+        self.start()
+        self.function(*self.args,**self.kwargs)
+    def start(self):
+        if not self.is_running:
+            self._timer = Timer(self.interval,self._run)
+            self._timer.start()
+            self.is_running = True
+    def stop(self):
+        self._timer.cancel()
+        self.is_running = False
+
+
 # Decreases BAC by 0.00025 every minute
 def dec():
     cursor.execute("UPDATE patrons SET bac = bac - 0.00025")
@@ -361,6 +394,7 @@ pgm.add_widget(updateWindow(name='updateW'))
 class MainApp(App):
     def build(self):
         rt = BACdown(60,dec)
+        rc = rec(3600,read)
         return pgm
 
 if __name__ == "__main__":

@@ -1,1 +1,1 @@
-certifi
+mysql_connector
